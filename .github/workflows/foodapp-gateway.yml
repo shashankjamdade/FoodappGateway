@@ -3,29 +3,29 @@ name: Build and Deploy Gateway to ECR
 on:
   push:
     branches:
-      - master  # Trigger on push to main branch
+      - master
 
 jobs:
   build-and-push-ecr:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up JDK
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      # Step 3: Build Spring Boot JAR
-      - name: Build JAR
+      # ⭐ FIX: Give execute permission to mvnw
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
+      - name: Build Spring Boot JAR
         run: ./mvnw clean package -DskipTests
 
-      # Step 4: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -33,29 +33,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-north-1
 
-      # Step 5: Login to Amazon ECR
       - name: Login to Amazon ECR
-        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Step 6: Build Docker image
       - name: Build Docker image
         run: |
           IMAGE_URI=123456789012.dkr.ecr.eu-north-1.amazonaws.com/gateway-service:latest
           docker build -t $IMAGE_URI .
 
-      # Step 7: Push Docker image to ECR
       - name: Push Docker image to ECR
         run: |
           IMAGE_URI=123456789012.dkr.ecr.eu-north-1.amazonaws.com/gateway-service:latest
           docker push $IMAGE_URI
 
-      # Step 8: Update kubeconfig for EKS
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig --name shashitech --region eu-north-1
 
-      # Step 9: Deploy to EKS
       - name: Deploy to EKS
         run: |
           kubectl apply -f k8s/gateway-deployment.yaml
