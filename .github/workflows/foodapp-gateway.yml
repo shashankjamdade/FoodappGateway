@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -19,11 +18,10 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # ✅ FIX
       - name: Make mvnw executable
         run: chmod +x mvnw
 
-      - name: Build Spring Boot JAR
+      - name: Build JAR
         run: ./mvnw clean package -DskipTests
 
       - name: Configure AWS credentials
@@ -34,21 +32,21 @@ jobs:
           aws-region: eu-north-1
 
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+        run: |
+          aws ecr get-login-password --region eu-north-1 \
+          | docker login --username AWS --password-stdin 512894211966.dkr.ecr.eu-north-1.amazonaws.com
+
+      - name: Set image URI
+        run: echo "IMAGE_URI=512894211966.dkr.ecr.eu-north-1.amazonaws.com/gateway-service:latest" >> $GITHUB_ENV
 
       - name: Build Docker image
-        run: |
-          IMAGE_URI=123456789012.dkr.ecr.eu-north-1.amazonaws.com/gateway-service:latest
-          docker build -t $IMAGE_URI .
+        run: docker build -t $IMAGE_URI .
 
-      - name: Push Docker image to ECR
-        run: |
-          IMAGE_URI=123456789012.dkr.ecr.eu-north-1.amazonaws.com/gateway-service:latest
-          docker push $IMAGE_URI
+      - name: Push Docker image
+        run: docker push $IMAGE_URI
 
       - name: Update kubeconfig
-        run: |
-          aws eks update-kubeconfig --name shashitech --region eu-north-1
+        run: aws eks update-kubeconfig --name shashitech --region eu-north-1
 
       - name: Deploy to EKS
         run: |
